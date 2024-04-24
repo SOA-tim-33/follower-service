@@ -21,7 +21,7 @@ type IUserService interface {
 type IProfileService interface {
 	Init(crudRepository repo.IProfileRepository)
 	GetAll() ([]model.Profile, error)
-	Get(id int) ([]model.Profile, error)
+	Get(id int) (model.Profile, error)
 	Create(profile *model.Profile) (*model.Profile, error)
 	Delete(id int) error
 	Update(profile *model.Profile) error
@@ -30,16 +30,16 @@ type IProfileService interface {
 type IFollowService interface {
 	Init(crudRepository repo.IFollowRepository)
 	GetAll() ([]model.Follow, error)
-	Get(id int) ([]model.Follow, error)
+	Get(id int) (model.Follow, error)
 	Create(follow *model.Follow) (*model.Follow, error)
 	Delete(id int) error
-	Update(follow *model.Profile) error
+	Update(follow *model.Follow) error
 }
 
 type ITourPreferenceService interface {
 	Init(crudRepository repo.ITourPreferenceRepository)
 	GetAll() ([]model.TourPreference, error)
-	Get(id int) ([]model.TourPreference, error)
+	Get(id int) (model.TourPreference, error)
 	Create(tourPreference *model.TourPreference) (*model.TourPreference, error)
 	Delete(id int) error
 	Update(tourPreference *model.TourPreference) error

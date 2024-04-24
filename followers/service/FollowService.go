@@ -30,12 +30,12 @@ func (service *FollowService) GetAll() ([]model.Follow, error) {
 	return follows, nil
 }
 
-func (service *FollowService) Get(id int) (*model.Follow, error) {
+func (service *FollowService) Get(id int) (model.Follow, error) {
 	follow, err := service.FollowRepo.Get(id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting follow")
+		return model.Follow{}, fmt.Errorf("error getting follow")
 	}
-	return &follow, nil
+	return follow, nil
 }
 
 func (service *FollowService) Update(follow *model.Follow) error {

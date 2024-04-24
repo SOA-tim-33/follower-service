@@ -30,12 +30,12 @@ func (service *ProfileService) GetAll() ([]model.Profile, error) {
 	return profiles, nil
 }
 
-func (service *ProfileService) Get(id int) (*model.Profile, error) {
+func (service *ProfileService) Get(id int) (model.Profile, error) {
 	profile, err := service.ProfileRepo.Get(id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting profile")
+		return model.Profile{}, fmt.Errorf("error getting profile: %v", err)
 	}
-	return &profile, nil
+	return profile, nil
 }
 
 func (service *ProfileService) Update(profile *model.Profile) error {

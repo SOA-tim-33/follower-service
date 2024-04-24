@@ -30,12 +30,12 @@ func (service *TourPreferenceService) GetAll() ([]model.TourPreference, error) {
 	return tourPreferences, nil
 }
 
-func (service *TourPreferenceService) Get(id int) (*model.TourPreference, error) {
+func (service *TourPreferenceService) Get(id int) (model.TourPreference, error) {
 	tourPreference, err := service.TourPreferenceRepo.Get(id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting tour preference")
+		return model.TourPreference{}, fmt.Errorf("error getting tour preference")
 	}
-	return &tourPreference, nil
+	return tourPreference, nil
 }
 
 func (service *TourPreferenceService) Update(tourPreference *model.TourPreference) error {

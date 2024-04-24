@@ -16,103 +16,32 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// func initDB() *gorm.DB {
-// 	connectionStr := "root:root@tcp(localhost:3306)/students?charset=utf8mb4&parseTime=True&loc=Local"
-// 	database, err := gorm.Open(mysql.Open(connectionStr), &gorm.Config{})
-// 	if err != nil {
-// 		print(err)
-// 		return nil
-// 	}
-
-// 	database.AutoMigrate(&model.BlogComment{})
-// 	database.AutoMigrate(&model.Rating{})
-// 	database.AutoMigrate(&model.UserBlog{})
-// 	database.AutoMigrate(&model.UserBlogTourReport{})
-
-// 	//database.Exec("INSERT IGNORE INTO students VALUES ('aec7e123-233d-4a09-a289-75308ea5b7e6', 'Marko Markovic', 'Graficki dizajn')")
-
-// 	return database
-// }
-
-//func startServer(blog_comment_handler *handler.BlogCommentHandler, rating_handler *handler.RatingHandler, user_blog_handler *handler.UserBlogHandler, user_blog_tour_report_handler *handler.UserBlogTourReportHandler) {
-// 	router := mux.NewRouter().StrictSlash(true)
-
-// 	router.HandleFunc("/blogcomments", blog_comment_handler.Create).Methods("POST")
-// 	router.HandleFunc("/blogcomments/{id}", blog_comment_handler.Get).Methods("GET")
-// 	router.HandleFunc("/blogcomments/all", blog_comment_handler.GetAll).Methods("GET")
-// 	router.HandleFunc("/blogcomments", blog_comment_handler.Update).Methods("PUT")
-// 	router.HandleFunc("/blogcomments", blog_comment_handler.Delete).Methods("DELETE")
-
-// 	router.HandleFunc("/ratings", rating_handler.Create).Methods("POST")
-// 	router.HandleFunc("/ratings/{id}", rating_handler.Get).Methods("GET")
-// 	router.HandleFunc("/ratings/all", rating_handler.GetAll).Methods("GET")
-// 	router.HandleFunc("/ratings", rating_handler.Update).Methods("PUT")
-// 	router.HandleFunc("/ratings", rating_handler.Delete).Methods("DELETE")
-
-// 	router.HandleFunc("/userblogs", user_blog_handler.Create).Methods("POST")
-// 	router.HandleFunc("/userblogs/{id}", user_blog_handler.Get).Methods("GET")
-// 	// router.HandleFunc("/userblogs/all", user_blog_handler.GetAll).Methods("GET")
-// 	// router.HandleFunc("/userblogs", user_blog_handler.Update).Methods("PUT")
-// 	// router.HandleFunc("/userblogs", user_blog_handler.Delete).Methods("DELETE")
-
-// 	router.HandleFunc("/userblogtourreports", user_blog_tour_report_handler.Create).Methods("POST")
-// 	router.HandleFunc("/userblogtourreports/{id}", user_blog_tour_report_handler.Get).Methods("GET")
-// 	router.HandleFunc("/userblogtourreports/all", user_blog_tour_report_handler.GetAll).Methods("GET")
-// 	router.HandleFunc("/userblogtourreports", user_blog_tour_report_handler.Update).Methods("PUT")
-// 	router.HandleFunc("/userblogtourreports", user_blog_tour_report_handler.Delete).Methods("DELETE")
-
-// 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static")))
-// 	println("Server starting")
-// 	log.Fatal(http.ListenAndServe(":8080", router))
-// }
-
-// func main() {
-// 	database := initDB()
-// 	if database == nil {
-// 		print("FAILED TO CONNECT TO DB")
-// 		return
-// 	}
-
-// 	blog_comment_repo := &repo.BlogCommentRepository{DatabaseConnection: database}
-// 	blog_comment_service := &service.BlogCommentService{BlogCommentRepo: blog_comment_repo}
-// 	blog_comment_handler := &handler.BlogCommentHandler{BlogCommentService: blog_comment_service}
-
-// 	rating_repo := &repo.RatingRepository{DatabaseConnection: database}
-// 	rating_service := &service.RatingService{RatingRepo: rating_repo}
-// 	rating_handler := &handler.RatingHandler{RatingService: rating_service}
-
-// 	user_blog_repo := &repo.UserBlogRepository{DatabaseConnection: database}
-// 	user_blog_service := &service.UserBlogService{UserBlogRepo: user_blog_repo}
-// 	user_blog_handler := &handler.UserBlogHandler{UserBlogService: user_blog_service}
-
-// 	user_blog_tour_report_repo := &repo.UserBlogTourReportRepository{DatabaseConnection: database}
-// 	user_blog_tour_report_service := &service.UserBlogTourReportService{UserBlogTourReportRepo: user_blog_tour_report_repo}
-// 	user_blog_tour_report_handler := &handler.UserBlogTourReportHandler{UserBlogTourReportService: user_blog_tour_report_service}
-
-//		startServer(blog_comment_handler, rating_handler, user_blog_handler, user_blog_tour_report_handler)
-//	}
 func main() {
 	loadConfig()
 
 	database := initDB()
 
-	blogRepository := repo.UserBlogRepository{}
-	blogRepository.Init(database)
-	blogCommentRepository := repo.BlogCommentRepository{}
-	blogCommentRepository.Init(database)
-	ratingRepository := repo.RatingRepository{}
-	ratingRepository.Init(database)
+	userRepository := repo.UserRepository{}
+	userRepository.Init(database)
+	profileRepository := repo.ProfileRepository{}
+	profileRepository.Init(database)
+	followRepository := repo.FollowRepository{}
+	followRepository.Init(database)
+	tourPreferenceRepository := repo.TourPreferenceRepository{}
+	tourPreferenceRepository.Init(database)
 
-	blogService := service.UserBlogService{}
-	blogService.Init(&blogRepository)
-	blogCommentService := service.BlogCommentService{}
-	blogCommentService.Init(&blogCommentRepository)
-	ratingService := service.RatingService{}
-	ratingService.Init(&ratingRepository)
+	userService := service.UserService{}
+	userService.Init(&userRepository)
+	profileService := service.ProfileService{}
+	profileService.Init(&profileRepository)
+	followService := service.FollowService{}
+	followService.Init(&followRepository)
+	tourPreferenceService := service.TourPreferenceService{}
+	tourPreferenceService.Init(&tourPreferenceRepository)
 
-	blogHandler := handler.UserBlogHandler{}
+	userHandler := handler.UserHandler{}
 
-	router := blogHandler.InitRouter(&blogService, &blogCommentService, &ratingService)
+	router := userHandler.InitRouter(&userService, &profileService, &followService, &tourPreferenceService)
 	fmt.Println("Encounters micro-service running")
 	http.ListenAndServe(":7007", router)
 
