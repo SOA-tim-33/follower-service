@@ -6,29 +6,41 @@ import (
 )
 
 type ICRUDService interface {
-	Create(userBlog *model.Blog) (*model.Blog, error)
-	GetAll() ([]model.Blog, error)
-	Get(id int) (*model.Blog, error)
+	Create(user *model.User) (*model.User, error)
+	GetAll() ([]model.User, error)
+	Get(id int) (*model.User, error)
 	Delete(id int) error
-	GetByUser(userId int) ([]model.Blog, error)
-	Update(userBlog *model.Blog) error
+	Update(user *model.User) error
 }
 
-type IUserBlogService interface {
+type IUserService interface {
 	ICRUDService
-	Init(crudRepository repo.IUserBlogRepository)
+	Init(crudRepository repo.IUserRepository)
 }
-type IBlogCommentService interface {
-	Init(crudRepository repo.IBlogCommentRepository)
-	GetAll() ([]model.BlogComment, error)
-	Create(userBlog *model.BlogComment) (*model.BlogComment, error)
-	GetByBlog(blogId int) ([]model.BlogComment, error)
+
+type IProfileService interface {
+	Init(crudRepository repo.IProfileRepository)
+	GetAll() ([]model.Profile, error)
+	Get(id int) ([]model.Profile, error)
+	Create(profile *model.Profile) (*model.Profile, error)
 	Delete(id int) error
-	Update(blogComment *model.BlogComment) error
+	Update(profile *model.Profile) error
 }
-type IRatingService interface {
-	Init(crudRepository repo.IRatingRepository)
-	Create(rating *model.Rating) (*model.Rating, error)
-	GetPositiveByBlog(blogId int) ([]model.Rating, error)
-	GetNegativeByBlog(blogId int) ([]model.Rating, error)
+
+type IFollowService interface {
+	Init(crudRepository repo.IFollowRepository)
+	GetAll() ([]model.Follow, error)
+	Get(id int) ([]model.Follow, error)
+	Create(follow *model.Follow) (*model.Follow, error)
+	Delete(id int) error
+	Update(follow *model.Profile) error
+}
+
+type ITourPreferenceService interface {
+	Init(crudRepository repo.ITourPreferenceRepository)
+	GetAll() ([]model.TourPreference, error)
+	Get(id int) ([]model.TourPreference, error)
+	Create(tourPreference *model.TourPreference) (*model.TourPreference, error)
+	Delete(id int) error
+	Update(tourPreference *model.TourPreference) error
 }
