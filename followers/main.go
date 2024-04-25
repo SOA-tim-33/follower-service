@@ -1,75 +1,120 @@
 package main
 
 import (
+	"context"
 	"database-example/handler"
 	"database-example/repo"
 	"database-example/service"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"time"
 
-	"github.com/joho/godotenv"
-
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
+	"github.com/gorilla/mux"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func main() {
-	loadConfig()
+func startServer(handler *handler.UserHandler) {
 
-	database := initDB()
-
-	userRepository := repo.UserRepository{}
-	userRepository.Init(database)
-	profileRepository := repo.ProfileRepository{}
-	profileRepository.Init(database)
-	followRepository := repo.FollowRepository{}
-	followRepository.Init(database)
-	tourPreferenceRepository := repo.TourPreferenceRepository{}
-	tourPreferenceRepository.Init(database)
-
-	userService := service.UserService{}
-	userService.Init(&userRepository)
-	profileService := service.ProfileService{}
-	profileService.Init(&profileRepository)
-	followService := service.FollowService{}
-	followService.Init(&followRepository)
-	tourPreferenceService := service.TourPreferenceService{}
-	tourPreferenceService.Init(&tourPreferenceRepository)
-
-	userHandler := handler.UserHandler{}
-
-	router := userHandler.InitRouter(&userService, &profileService, &followService, &tourPreferenceService)
-	fmt.Println("Encounters micro-service running")
-	http.ListenAndServe(":7007", router)
-
+	router := mux.NewRouter().StrictSlash(true)
+	url := "/followers/"
+	router.HandleFunc(url+"if-following/{id1}/{id2}", handler.CheckIfFollowing).Methods("GET")
+	router.HandleFunc(url+"follow/{id1}/{id2}", handler.Follow).Methods("POST")
+	router.HandleFunc(url+"get-recommendations/{id}", handler.GetRecommendation).Methods("GET")
+	log.Fatal(http.ListenAndServe(":7007", router))
 }
-func loadConfig() {
-	envErr := godotenv.Load("config/.env")
+func initDB() neo4j.DriverWithContext {
 
-	if envErr != nil {
-		log.Fatalf(envErr.Error())
-	}
-}
+	uri := "bolt://localhost:7687"
+	user := "neo4j"
+	pass := "123456789"
+	auth := neo4j.BasicAuth(user, pass, "")
 
-/* not sure where to put this*/
-func initDB() *gorm.DB {
-	/* TODO: lazy to think of something easier: */
-	dbType := os.Getenv("DATABASE_TYPE")
-	dbUser := os.Getenv("DATABASE_USER")
-	dbSecret := os.Getenv("DATABASE_SECRET")
-	dbHost := os.Getenv("DATABASE_HOST")
-	dbPort := os.Getenv("DATABASE_PORT")
-	dbName := os.Getenv("DATABASE_NAME")
-	connectionUrl := fmt.Sprintf("%s://%s:%s@%s:%s/%s", dbType, dbUser, dbSecret, dbHost, dbPort, dbName)
-	database, databaseErr := gorm.Open(postgres.Open(connectionUrl), &gorm.Config{NamingStrategy: schema.NamingStrategy{
-		NoLowerCase: true,
-	}})
-	if databaseErr != nil {
-		log.Fatalf(databaseErr.Error())
+	driver, err := neo4j.NewDriverWithContext(uri, auth)
+	if err != nil {
+		fmt.Println(err)
 		return nil
+
 	}
-	return database
+
+	return driver
+
+}
+func CheckConnection(driver neo4j.DriverWithContext) {
+	ctx := context.Background()
+	err := driver.VerifyConnectivity(ctx)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func cleanData(driver neo4j.DriverWithContext) error {
+
+	ctx := context.Background()
+	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
+
+	_, err := session.ExecuteWrite(ctx,
+		func(transaction neo4j.ManagedTransaction) (any, error) {
+			_, err := transaction.Run(
+				ctx,
+				`MATCH (n) DETACH DELETE n`,
+				nil)
+			return nil, err
+		})
+	return err
+}
+
+func migrateData(driver neo4j.DriverWithContext) error {
+
+	ctx := context.Background()
+	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
+	fmt.Printf("Neo %s\n", session)
+
+	_, err := session.ExecuteWrite(ctx,
+		func(transaction neo4j.ManagedTransaction) (any, error) {
+			_, err := transaction.Run(
+				ctx,
+				`MERGE (u1: User {id: 1})
+				 MERGE (u2: User {id: 2})
+				 MERGE (u3: User {id: 3})
+				 MERGE (u4: User {id: 4})
+				 MERGE (u5: User {id: 5})
+				 MERGE (u6: User {id: 6})
+				 CREATE (u1) -[:Following]->(u2)
+				 CREATE (u1) -[:Following]->(u5)
+				 CREATE (u2) -[:Following]->(u6)
+				 CREATE (u3) -[:Following]->(u2)
+				 CREATE (u3) -[:Following]->(u5)
+				 CREATE (u4) -[:Following]->(u1)
+				 `,
+				nil)
+			return nil, err
+		})
+	return err
+}
+
+func main() {
+	timeoutContext, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	driver := initDB()
+
+	defer driver.Close(timeoutContext)
+	CheckConnection(driver)
+
+	if driver == nil {
+		return
+	}
+
+	cleanData(driver)
+	migrateData(driver)
+
+	followerRepository := &repo.FollowRepository{driver}
+	followerService := &service.FollowService{followerRepository}
+	followerHandler := &handler.UserHandler{followerService}
+
+	startServer(followerHandler)
 }

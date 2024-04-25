@@ -1,55 +1,24 @@
 package service
 
-import (
-	"database-example/model"
-	"database-example/repo"
-	"fmt"
-)
+import "database-example/repo"
 
 type FollowService struct {
-	FollowRepo repo.IFollowRepository
+	FollowRepository *repo.FollowRepository
 }
 
-func (followService *FollowService) Init(followRepository repo.IFollowRepository) {
-	followService.FollowRepo = followRepository
+func (service *FollowService) Follow(id1, id2 int) error {
+	err := service.FollowRepository.Following(id1, id2)
+	return err
 }
 
-func (service *FollowService) Create(follow *model.Follow) (*model.Follow, error) {
-	createdFollow, err := service.FollowRepo.Create(follow)
-	if err != nil {
-		return nil, fmt.Errorf("error creating follow")
+func (service *FollowService) CheckFollowing(id1, id2 int) (bool, error) {
+	return service.FollowRepository.CheckFollowing(id1, id2)
+}
+
+func (service *FollowService) GetRecommendations(id int) ([]int, error) {
+	recommendations, err := service.FollowRepository.GetRecommendation(id)
+	if len(recommendations) == 0 {
+		return []int{}, err
 	}
-	return &createdFollow, nil
-}
-
-func (service *FollowService) GetAll() ([]model.Follow, error) {
-	follows, err := service.FollowRepo.GetAll()
-	if err != nil {
-		return nil, fmt.Errorf("error getting all follows")
-	}
-	return follows, nil
-}
-
-func (service *FollowService) Get(id int) (model.Follow, error) {
-	follow, err := service.FollowRepo.Get(id)
-	if err != nil {
-		return model.Follow{}, fmt.Errorf("error getting follow")
-	}
-	return follow, nil
-}
-
-func (service *FollowService) Update(follow *model.Follow) error {
-	err := service.FollowRepo.Update(follow)
-	if err != nil {
-		return fmt.Errorf("error updating follow")
-	}
-	return nil
-}
-
-func (service *FollowService) Delete(id int) error {
-	err := service.FollowRepo.Delete(id)
-	if err != nil {
-		return fmt.Errorf("error deleting follow")
-	}
-	return nil
+	return recommendations, err
 }

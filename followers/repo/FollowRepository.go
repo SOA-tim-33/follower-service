@@ -1,58 +1,107 @@
 package repo
 
 import (
-	"database-example/model"
+	"context"
 
-	"gorm.io/gorm"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 type FollowRepository struct {
-	databaseConnection *gorm.DB
+	Driver neo4j.DriverWithContext
 }
 
-func (followRepository *FollowRepository) Init(databaseConnection *gorm.DB) {
-	followRepository.databaseConnection = databaseConnection
-}
+func (repo *FollowRepository) Following(id1, id2 int) error {
+	ctx := context.Background()
+	session := repo.Driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
 
-func (followRepository *FollowRepository) Create(follow *model.Follow) (model.Follow, error) {
-	dbResult := followRepository.databaseConnection.Create(follow)
-	if dbResult != nil {
-		return *follow, dbResult.Error
+	parameters := map[string]interface{}{
+		"id1": id1,
+		"id2": id2,
 	}
-	return *follow, nil
+	_, err := session.ExecuteWrite(ctx,
+		func(transaction neo4j.ManagedTransaction) (any, error) {
+			result, err := transaction.Run(
+				ctx,
+				`WITH $id1 as id1, $id2 as id2
+						MERGE (u1: User {id: id1})
+						MERGE (u2: User {id: id2})
+						CREATE (u1) -[:Following]->(u2)
+						RETURN u1, u2`,
+				parameters)
+			return result, err
+		})
+	return err
 }
 
-func (followRepository *FollowRepository) GetAll() ([]model.Follow, error) {
-	var follows = []model.Follow{}
-	dbResult := followRepository.databaseConnection.Find(&follows)
-	if dbResult != nil {
-		return follows, dbResult.Error
+func (repo *FollowRepository) CheckFollowing(id1, id2 int) (bool, error) {
+	ctx := context.Background()
+	session := repo.Driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
+
+	parameters := map[string]interface{}{
+		"id1": id1,
+		"id2": id2,
 	}
-	return follows, nil
+
+	result, err := session.ExecuteRead(ctx,
+		func(transcation neo4j.ManagedTransaction) (any, error) {
+			result, err := transcation.Run(
+				ctx,
+				`MATCH (u1: User{id: $id1}) -[f:Following]-> (u2: User {id: $id2})
+						RETURN count(f) as count`,
+				parameters)
+			if err != nil {
+				return 0, err
+			}
+
+			var value any
+			if result.Next(ctx) {
+				value, _ = result.Record().Get("count")
+			}
+			return value, nil
+
+		})
+	if err != nil {
+		return false, err
+	}
+
+	return result.(int64) > 0, nil
 }
 
-func (followRepository *FollowRepository) Get(id int) (model.Follow, error) {
-	var follow = model.Follow{}
-	dbResult := followRepository.databaseConnection.Find(&follow, "\"Id\"=?", id)
-	if dbResult != nil {
-		return follow, dbResult.Error
-	}
-	return follow, nil
-}
+func (repo *FollowRepository) GetRecommendation(id int) ([]int, error) {
 
-func (followRepository *FollowRepository) Delete(id int) error {
-	var follow = model.Follow{}
-	dbResult := followRepository.databaseConnection.Delete(&follow, id)
-	if dbResult != nil {
-		return dbResult.Error
-	}
-	return nil
-}
+	ctx := context.Background()
+	session := repo.Driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
 
-func (followRepository *FollowRepository) Update(follow *model.Follow) error {
-	dbResult := followRepository.databaseConnection.Save(follow)
-	if dbResult.Error != nil {
-		return dbResult.Error
+	parameters := map[string]interface{}{
+		"id": id,
 	}
-	return nil
+
+	var recommendations []int
+	result, err := session.ExecuteRead(ctx,
+		func(transcation neo4j.ManagedTransaction) (any, error) {
+			result, err := transcation.Run(ctx,
+				`MATCH (u1:User {id: $id})-[:Following]->(u2:User)-[:Following]->(u3:User)
+						WHERE NOT (u1)-[:Following]->(u3) AND u3.id <> $id
+				 		RETURN DISTINCT u3.id as recommendationID`,
+				parameters)
+			if err != nil {
+				return nil, err
+			}
+			for result.Next(ctx) {
+				value, _ := result.Record().Get("recommendationID")
+				recommendationId, _ := value.(int64)
+				recommendations = append(recommendations, int(recommendationId))
+
+			}
+			return recommendations, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return result.([]int), nil
+
 }

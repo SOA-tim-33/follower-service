@@ -9,6 +9,8 @@ require (
 	gorm.io/gorm v1.25.7-0.20240204074919-46816ad31dde
 )
 
+require github.com/neo4j/neo4j-go-driver/v5 v5.20.0 // indirect
+
 require (
 	github.com/go-chi/chi v1.5.5
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
