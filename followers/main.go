@@ -3,26 +3,23 @@ package main
 import (
 	"context"
 	"database-example/handler"
+	"database-example/proto/follower"
 	"database-example/repo"
 	"database-example/service"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
+
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
-func startServer(handler *handler.UserHandler) {
-
-	router := mux.NewRouter().StrictSlash(true)
-	url := "/followers/"
-	router.HandleFunc(url+"if-following/{id1}/{id2}", handler.CheckIfFollowing).Methods("GET")
-	router.HandleFunc(url+"follow/{id1}/{id2}", handler.Follow).Methods("POST")
-	router.HandleFunc(url+"get-recommendations/{id}", handler.GetRecommendation).Methods("GET")
-	log.Fatal(http.ListenAndServe(":7007", router))
-}
 func initDB() neo4j.DriverWithContext {
 
 	uri := "bolt://localhost:7687"
@@ -114,7 +111,35 @@ func main() {
 
 	followerRepository := &repo.FollowRepository{driver}
 	followerService := &service.FollowService{followerRepository}
-	followerHandler := &handler.UserHandler{followerService}
+	followerHandler := &handler.UserHandler{FollowerService: followerService}
 
-	startServer(followerHandler)
+	lis, err := net.Listen("tcp", ":7007")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}(lis)
+	grpcServer := grpc.NewServer()
+	reflection.Register(grpcServer)
+
+	follower.RegisterFollowerServiceServer(grpcServer, followerHandler)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	stopCh := make(chan os.Signal)
+	signal.Notify(stopCh, syscall.SIGTERM)
+
+	<-stopCh
+
+	grpcServer.Stop()
+
 }

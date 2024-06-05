@@ -1,80 +1,59 @@
 package handler
 
 import (
+	"context"
+	"database-example/proto/follower"
 	"database-example/service"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"strconv"
-
-	"github.com/gorilla/mux"
 )
 
 type UserHandler struct {
+	follower.UnimplementedFollowerServiceServer
 	FollowerService *service.FollowService
 }
 
-func (handler *UserHandler) Follow(writer http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	id1, err1 := strconv.Atoi(vars["id1"])
-	id2, err2 := strconv.Atoi(vars["id2"])
-	if err1 != nil || err2 != nil {
-		writer.WriteHeader(http.StatusBadRequest)
-		return
+func (handler *UserHandler) toInt64Array(intArray []int) []int64 {
+	result := make([]int64, len(intArray))
+	for i, e := range intArray {
+		result[i] = int64(e)
 	}
+	return result
+}
+func (handler *UserHandler) Follow(ctx context.Context, request *follower.MultiIdRequest) (*follower.EmptyResponse, error) {
+	id1 := int(request.Id1)
+	id2 := int(request.Id2)
+
 	var err = handler.FollowerService.Follow(id1, id2)
 	if err == nil {
-		writer.WriteHeader(http.StatusOK)
-		return
+		return &follower.EmptyResponse{}, nil
 	}
 	fmt.Println(err)
-	writer.WriteHeader(http.StatusInternalServerError)
+	return &follower.EmptyResponse{}, err
 
 }
 
-func (handler *UserHandler) CheckIfFollowing(writer http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	id1, err1 := strconv.Atoi(vars["id1"])
-	id2, err2 := strconv.Atoi(vars["id2"])
-	if err1 != nil || err2 != nil {
-		writer.WriteHeader(http.StatusBadRequest)
-		return
-	}
+func (handler *UserHandler) CheckIfFollowing(ctx context.Context, request *follower.MultiIdRequest) (*follower.IsFollowingResponse, error) {
+
+	id1 := int(request.Id1)
+	id2 := int(request.Id2)
 
 	result, err := handler.FollowerService.CheckFollowing(id1, id2)
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
+		fmt.Println(err)
+		return nil, err
 	}
-
-	response := []byte(strconv.FormatBool(result))
-	writer.WriteHeader(http.StatusOK)
-	writer.Write(response)
+	return &follower.IsFollowingResponse{IsFollowing: result}, nil
 }
 
-func (handler *UserHandler) GetRecommendation(writer http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
-		return
-	}
+func (handler *UserHandler) GetRecommendation(ctx context.Context, request *follower.Request) (*follower.MultiIdResponse, error) {
 
-	result, error := handler.FollowerService.GetRecommendations(id)
+	id := int(request.Id)
+	result, err := handler.FollowerService.GetRecommendations(id)
 
-	if error != nil {
-		fmt.Println(error)
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	response, err := json.Marshal(result)
 	if err != nil {
 		fmt.Println(err)
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, err
 	}
-	writer.Header().Set("Content-Type", "application/json")
-	writer.WriteHeader(http.StatusOK)
-	writer.Write(response)
+
+	return &follower.MultiIdResponse{Ids: handler.toInt64Array(result)}, nil
 }
